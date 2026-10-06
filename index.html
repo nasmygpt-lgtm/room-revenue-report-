@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Room Availability Dashboard</title>
+<style>
+:root{
+  --bg:#f4f6f9;--card:#fff;--text:#1a1a2e;--muted:#6b7280;--border:#e2e5ea;
+  --blue:#2563eb;--green:#22c55e;--amber:#f59e0b;--red:#ef4444;
+  --grey:#94a3b8;--dark-bar:#334155;--accent:#6366f1;
+  --kpi-bg:linear-gradient(135deg,#6366f1,#8b5cf6);
+  --shadow:0 2px 8px rgba(0,0,0,.08);
+}
+[data-theme=dark]{
+  --bg:#0f172a;--card:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--border:#334155;
+  --shadow:0 2px 8px rgba(0,0,0,.3);
+  --kpi-bg:linear-gradient(135deg,#4f46e5,#7c3aed);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);transition:background .3s,color .3s;line-height:1.5;min-height:100vh}
+.container{max-width:1400px;margin:0 auto;padding:12px}
+h1{font-size:1.5rem;font-weight:700}
+h2{font-size:1.15rem;font-weight:600;margin-bottom:10px;color:var(--accent)}
+h3{font-size:1rem;font-weight:600;margin-bottom:6px}
+
+/* Header */
+.header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:14px 18px;background:var(--card);border-radius:12px;box-shadow:var(--shadow);margin-bottom:14px}
+.header-left{display:flex;align-items:center;gap:10px}
+.hotel-icon{font-size:1.6rem}
+.header-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.header-controls label{font-size:.82rem;color:var(--muted)}
+.header-controls input[type=number]{width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-size:.85rem;text-align:center}
+.theme-btn{background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:1rem;color:var(--text)}
+
+/* Cards row */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--kpi-bg);color:#fff;border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+.kpi-label{font-size:.75rem;opacity:.85;text-transform:uppercase;letter-spacing:.5px}
+.kpi-value{font-size:1.5rem;font-weight:700;margin-top:2px}
+.kpi-sub{font-size:.78rem;opacity:.8;margin-top:2px}
+
+/* Sections */
+.section{background:var(--card);border-radius:12px;padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow);overflow-x:auto}
+
+/* Upload zone */
+.upload-zone{border:2px dashed var(--border);border-radius:12px;padding:30px 20px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;position:relative}
+.upload-zone.drag-over{border-color:var(--blue);background:rgba(37,99,235,.06)}
+.upload-zone-icon{font-size:2.5rem;margin-bottom:8px}
+.upload-zone p{color:var(--muted);font-size:.88rem;margin:4px 0}
+.upload-zone .upload-hint{font-size:.78rem;color:var(--muted);opacity:.7}
+.upload-actions{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+.btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:500;transition:transform .1s,box-shadow .15s}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border)}
+.btn-green{background:var(--green);color:#fff}
+.btn-amber{background:var(--amber);color:#fff}
+.upload-preview{margin-top:14px;text-align:center}
+.upload-preview img{max-width:100%;max-height:250px;border-radius:8px;border:1px solid var(--border)}
+.status-msg{margin-top:10px;padding:8px 14px;border-radius:8px;font-size:.85rem;display:none}
+.status-msg.info{display:block;background:rgba(37,99,235,.1);color:var(--blue)}
+.status-msg.success{display:block;background:rgba(34,197,94,.1);color:var(--green)}
+.status-msg.error{display:block;background:rgba(239,68,68,.1);color:var(--red)}
+.status-msg.warn{display:block;background:rgba(245,158,11,.1);color:var(--amber)}
+
+/* Manual fallback */
+.manual-fallback{margin-top:14px;padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg)}
+.manual-fallback textarea{width:100%;min-height:60px;padding:8px;border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:.85rem;background:var(--card);color:var(--text);resize:vertical}
+.manual-fallback input[type=text]{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:.85rem;background:var(--card);color:var(--text);width:120px}
+
+/* Legend */
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-bottom:10px;font-size:.78rem;color:var(--muted)}
+.legend-item{display:flex;align-items:center;gap:4px}
+.legend-swatch{width:14px;height:14px;border-radius:3px;flex-shrink:0}
+
+/* Chart */
+.chart-wrapper{overflow-x:auto;padding-bottom:8px}
+.chart{display:flex;align-items:flex-end;gap:6px;min-height:320px;padding-top:60px;position:relative}
+.chart-col{display:flex;flex-direction:column;align-items:center;min-width:52px;flex:1}
+.chart-labels{text-align:center;margin-bottom:4px;font-size:.7rem;line-height:1.35}
+.chart-labels .rate-label{font-weight:700;color:var(--accent);font-size:.72rem}
+.chart-labels .occ-label{color:var(--muted)}
+.chart-labels .booked-label{color:var(--text);font-weight:500}
+.bar-stack{width:100%;max-width:44px;border-radius:6px 6px 0 0;overflow:hidden;position:relative;min-height:10px}
+.bar-segment{width:100%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:600;color:#fff;min-height:4px;transition:height .4s}
+.bar-booked{/* color set dynamically */}
+.bar-available{background:var(--grey);opacity:.45}
+.chart-date{font-size:.72rem;font-weight:600;margin-top:4px;text-align:center;white-space:nowrap}
+.chart-day{font-size:.68rem;color:var(--muted)}
+.weekend{background:rgba(245,158,11,.12);border-radius:6px;padding:2px 4px}
+
+/* Rate card */
+.rate-card{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+.rate-item{padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:.82rem}
+.rate-item b{display:block;margin-bottom:2px}
+
+/* Trigger dates */
+.trigger-dates{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.trigger-chip{padding:4px 10px;border-radius:16px;font-size:.78rem;font-weight:500}
+.trigger-chip.active{background:rgba(239,68,68,.15);color:var(--red)}
+.trigger-chip.close{background:rgba(245,158,11,.15);color:var(--amber)}
+
+/* Brainstorm */
+.brainstorm-list{list-style:none;padding:0}
+.brainstorm-list li{padding:8px 12px;border-left:3px solid var(--accent);margin-bottom:6px;border-radius:0 6px 6px 0;background:var(--bg);font-size:.85rem}
+
+/* Table */
+.data-table{width:100%;border-collapse:separate;border-spacing:0;font-size:.82rem}
+.data-table th{background:var(--bg);position:sticky;top:0;padding:8px 10px;text-align:left;font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border-bottom:2px solid var(--border)}
+.data-table td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.data-table tr:hover td{background:rgba(99,102,241,.04)}
+.data-table .weekend-row{background:rgba(245,158,11,.06)}
+.data-table input[type=number]{width:60px;padding:3px 5px;border:1px solid var(--border);border-radius:5px;text-align:center;font-size:.82rem;background:var(--card);color:var(--text)}
+.status-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:600}
+.status-high{background:rgba(239,68,68,.12);color:var(--red)}
+.status-mod{background:rgba(245,158,11,.12);color:var(--amber)}
+.status-low{background:rgba(34,197,94,.12);color:var(--green)}
+.rate-on{color:var(--red);font-weight:700}
+.rate-base{color:var(--muted)}
+
+/* Verify bar */
+.verify-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);margin-bottom:12px;flex-wrap:wrap}
+.verify-bar .icon{font-size:1.2rem}
+.verify-bar p{font-size:.85rem;color:var(--amber);font-weight:500;flex:1}
+
+/* Mobile */
+@media(max-width:768px){
+  .container{padding:8px}
+  .header{padding:10px 12px}
+  h1{font-size:1.2rem}
+  .section{padding:12px}
+  .chart-col{min-width:42px}
+  .cards{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:480px){
+  .cards{grid-template-columns:1fr}
+  .header-controls{width:100%;justify-content:space-between}
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <span class="hotel-icon">🏨</span>
+      <div>
+        <h1>Room Availability Dashboard</h1>
+        <span style="font-size:.78rem;color:var(--muted)">Revenue &amp; Front-Office</span>
+      </div>
+    </div>
+    <div class="header-controls">
+      <label>Total rooms
+        <input type="number" id="totalRoomsInput" value="140" min="1" max="9999">
+      </label>
+      <label>Trigger %
+        <input type="number" id="triggerInput" value="70" min="1" max="100">
+      </label>
+      <button class="theme-btn" id="themeToggle" title="Toggle theme">🌙</button>
+    </div>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="cards" id="kpiCards"></div>
+
+  <!-- UPLOAD SECTION -->
+  <div class="section" id="uploadSection">
+    <h2>📸 Upload PMS Screenshot</h2>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:10px">
+      Copy the screen (<b>Win+Shift+S</b> / Snipping Tool), then <b>Ctrl+V</b> anywhere on this page — or use the options below.
+    </p>
+    <div class="upload-zone" id="uploadZone">
+      <div class="upload-zone-icon">📋</div>
+      <p><b>Drop, paste, or click</b> to upload a PMS Detailed Availability screenshot</p>
+      <p class="upload-hint">Only the Date column and first numeric "Total" (Available) column will be read</p>
+      <div class="upload-actions">
+        <button class="btn btn-primary" id="btnPickFile">📁 Choose file</button>
+        <button class="btn btn-secondary" id="btnPasteClip">📋 Paste from clipboard</button>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" hidden>
+    </div>
+    <div class="upload-preview" id="uploadPreview"></div>
+    <div class="status-msg" id="statusMsg"></div>
+
+    <!-- Manual fallback -->
+    <div class="manual-fallback" id="manualFallback">
+      <h3>✏️ Manual entry (fallback)</h3>
+      <p style="font-size:.8rem;color:var(--muted);margin-bottom:8px">If image reading is unavailable, enter data manually.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        <label style="font-size:.82rem">Start date (dd/mm/yy)
+          <input type="text" id="manualStartDate" value="06/10/26" placeholder="dd/mm/yy">
+        </label>
+      </div>
+      <label style="font-size:.82rem">Available rooms per day (space or comma separated)</label>
+      <textarea id="manualNumbers" placeholder="e.g. 36 76 93 99 98 114 119 121 122 121 119 96 122 118">36 76 93 99 98 114 119 121 122 121 119 96 122 118</textarea>
+      <button class="btn btn-green" style="margin-top:8px" id="btnManualLoad">Load data</button>
+    </div>
+  </div>
+
+  <!-- VERIFY BAR -->
+  <div class="verify-bar" id="verifyBar" style="display:none">
+    <span class="icon">⚠️</span>
+    <p>Data extracted from screenshot — <b>please verify</b> the Available values below, then everything recalculates automatically.</p>
+    <button class="btn btn-amber" id="btnConfirmData">✓ Looks good</button>
+  </div>
+
+  <!-- CHART SECTION -->
+  <div class="section" id="chartSection" style="display:none">
+    <h2>📊 Occupancy &amp; Rates Chart</h2>
+    <!-- Tier legend -->
+    <div class="legend" id="tierLegend">
+      <b style="margin-right:4px;color:var(--text)">Rate tiers:</b>
+      <span class="legend-item"><span class="legend-swatch" style="background:#dc2626"></span> &lt;10 left → 250+15</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#ea580c"></span> &lt;20 left → 225+15</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#d97706"></span> &lt;30 left → 185+15 RO</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#7c3aed"></span> ≥trigger → 160+15 WI</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#2563eb"></span> 50–&lt;70% → 135+15 RO</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#0891b2"></span> 40–50% → 125+15</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#64748b"></span> &lt;40% → 115+15</span>
+    </div>
+    <div class="legend" style="margin-bottom:8px">
+      <span class="legend-item"><span class="legend-swatch" style="background:var(--blue)"></span> Booked</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:var(--grey);opacity:.45"></span> Available</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:var(--green)"></span> &lt;30% occ</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:var(--amber)"></span> 30–70%</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:var(--red)"></span> ≥70%</span>
+    </div>
+    <div class="chart-wrapper"><div class="chart" id="chart"></div></div>
+  </div>
+
+  <!-- 70% TRIGGER RATE CARD -->
+  <div class="section" id="triggerSection" style="display:none">
+    <h2>🔴 70% Trigger Rate Card</h2>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:10px">When a date reaches the trigger occupancy, apply these rates:</p>
+    <div class="rate-card">
+      <div class="rate-item"><b>Walk-in</b>AED 160 + 15</div>
+      <div class="rate-item"><b>Online (Direct)</b>AED 190++</div>
+      <div class="rate-item"><b>NRF</b>AED 171++</div>
+      <div class="rate-item"><b>Agoda RO</b>AED 150–160</div>
+      <div class="rate-item"><b>Agoda BB</b>AED 185</div>
+    </div>
+    <div style="margin-top:14px">
+      <h3 style="color:var(--red)">🔥 Active now (at or above trigger)</h3>
+      <div class="trigger-dates" id="triggerActive"></div>
+    </div>
+    <div style="margin-top:10px">
+      <h3 style="color:var(--amber)">⏳ Closest to trigger (rooms still needed)</h3>
+      <div class="trigger-dates" id="triggerClose"></div>
+    </div>
+  </div>
+
+  <!-- BRAINSTORM -->
+  <div class="section" id="brainstormSection" style="display:none">
+    <h2>💡 Insights &amp; Brainstorm</h2>
+    <ul class="brainstorm-list" id="brainstormList"></ul>
+  </div>
+
+  <!-- DATA TABLE -->
+  <div class="section" id="tableSection" style="display:none">
+    <h2>📅 Day-wise Breakdown</h2>
+    <table class="data-table" id="dataTable">
+      <thead>
+        <tr>
+          <th>Date</th><th>Day</th><th>Available</th><th>Booked</th>
+          <th>Occ %</th><th>Rate (AED)</th><th>Status</th>
+          <th>Rooms to Trigger</th><th>Rate Mode</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+/* ── State ── */
+let DATA = [];
+let TOTAL_ROOMS = 140;
+let TRIGGER_PCT = 70;
+
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+/* ── Theme ── */
+const themeBtn = document.getElementById('themeToggle');
+function setTheme(dark) {
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
+  themeBtn.textContent = dark ? '☀️' : '🌙';
+}
+themeBtn.addEventListener('click', () => {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  setTheme(!isDark);
+});
+if (window.matchMedia('(prefers-color-scheme:dark)').matches) setTheme(true);
+
+/* ── Inputs ── */
+document.getElementById('totalRoomsInput').addEventListener('input', e => {
+  TOTAL_ROOMS = Math.max(1, parseInt(e.target.value) || 140);
+  if (DATA.length) recalcAll();
+});
+document.getElementById('triggerInput').addEventListener('input', e => {
+  TRIGGER_PCT = Math.max(1, Math.min(100, parseInt(e.target.value) || 70));
+  if (DATA.length) recalcAll();
+});
+
+/* ── Date helpers ── */
+function parseDate(str) {
+  // dd/mm/yy
+  const p = str.split('/');
+  if (p.length !== 3) return null;
+  let d = parseInt(p[0],10), m = parseInt(p[1],10)-1, y = parseInt(p[2],10);
+  if (y < 100) y += 2000;
+  return new Date(y, m, d);
+}
+function fmtDate(d) {
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
+}
+function fmtDateShort(d) {
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+/* ── Rate logic ── */
+function getRate(avail, occPct) {
+  if (avail < 10) return { rate: '250+15', tier: 'rooms<10', color: '#dc2626' };
+  if (avail < 20) return { rate: '225+15', tier: 'rooms<20', color: '#ea580c' };
+  if (avail < 30) return { rate: '185+15 RO', tier: 'rooms<30', color: '#d97706' };
+  if (occPct >= TRIGGER_PCT) return { rate: '160+15 WI', tier: '≥trigger', color: '#7c3aed' };
+  if (occPct >= 50) return { rate: '135+15 RO', tier: '50-70%', color: '#2563eb' };
+  if (occPct >= 40) return { rate: '125+15', tier: '40-50%', color: '#0891b2' };
+  return { rate: '115+15', tier: '<40%', color: '#64748b' };
+}
+
+function occColor(pct) {
+  if (pct >= 70) return 'var(--red)';
+  if (pct >= 30) return 'var(--amber)';
+  return 'var(--green)';
+}
+function occColorHex(pct) {
+  if (pct >= 70) return '#ef4444';
+  if (pct >= 30) return '#f59e0b';
+  return '#22c55e';
+}
+
+/* ── Compute rows ── */
+function computeRows() {
+  return DATA.map(r => {
+    const dt = parseDate(r.date);
+    const avail = r.available;
+    const booked = TOTAL_ROOMS - avail;
+    const occ = TOTAL_ROOMS > 0 ? (booked / TOTAL_ROOMS) * 100 : 0;
+    const dayName = dt ? DAYS[dt.getDay()] : '?';
+    const isWeekend = dt ? (dt.getDay() === 0 || dt.getDay() === 6) : false;
+    const rateInfo = getRate(avail, occ);
+    const roomsToTrigger = Math.max(0, Math.ceil(TOTAL_ROOMS * TRIGGER_PCT / 100) - booked);
+    const atTrigger = occ >= TRIGGER_PCT;
+    let status, statusClass;
+    if (occ >= 70) { status = 'High demand'; statusClass = 'status-high'; }
+    else if (occ >= 40) { status = 'Moderate'; statusClass = 'status-mod'; }
+    else { status = 'Low'; statusClass = 'status-low'; }
+    return { ...r, dt, avail, booked, occ, dayName, isWeekend, rateInfo, roomsToTrigger, atTrigger, status, statusClass };
+  });
+}
+
+/* ── Render everything ── */
+function recalcAll() {
+  const rows = computeRows();
+  renderKPIs(rows);
+  renderChart(rows);
+  renderTriggerCard(rows);
+  renderBrainstorm(rows);
+  renderTable(rows);
+  ['chartSection','triggerSection','brainstormSection','tableSection'].forEach(id => {
+    document.getElementById(id).style.display = '';
+  });
+}
+
+/* ── KPI Cards ── */
+function renderKPIs(rows) {
+  if (!rows.length) { document.getElementById('kpiCards').innerHTML = ''; return; }
+  const avgOcc = rows.reduce((s,r) => s + r.occ, 0) / rows.length;
+  const fullest = rows.reduce((a,b) => a.occ > b.occ ? a : b);
+  const emptiest = rows.reduce((a,b) => a.occ < b.occ ? a : b);
+  const unsold = rows.reduce((s,r) => s + Math.max(0, r.avail), 0);
+  document.getElementById('kpiCards').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Avg Occupancy</div><div class="kpi-value">${avgOcc.toFixed(1)}%</div><div class="kpi-sub">${rows.length} dates</div></div>
+    <div class="kpi"><div class="kpi-label">Fullest Date</div><div class="kpi-value">${fullest.occ.toFixed(1)}%</div><div class="kpi-sub">${fullest.date} (${fullest.dayName})</div></div>
+    <div class="kpi"><div class="kpi-label">Emptiest Date</div><div class="kpi-value">${emptiest.occ.toFixed(1)}%</div><div class="kpi-sub">${emptiest.date} (${emptiest.dayName})</div></div>
+    <div class="kpi"><div class="kpi-label">Unsold Room-Nights</div><div class="kpi-value">${unsold.toLocaleString()}</div><div class="kpi-sub">Total avail across dates</div></div>
+  `;
+}
+
+/* ── Chart ── */
+function renderChart(rows) {
+  const maxRooms = Math.max(TOTAL_ROOMS, ...rows.map(r => Math.abs(r.booked) + Math.abs(r.avail)));
+  const chartH = 220;
+  let html = '';
+  rows.forEach(r => {
+    const bookedH = maxRooms > 0 ? Math.max(2, Math.abs(r.booked) / maxRooms * chartH) : 2;
+    const availH = maxRooms > 0 ? Math.max(2, Math.max(0, r.avail) / maxRooms * chartH) : 2;
+    const bColor = occColorHex(r.occ);
+    const wClass = r.isWeekend ? ' weekend' : '';
+    html += `<div class="chart-col">
+      <div class="chart-labels">
+        <div class="rate-label" style="color:${r.rateInfo.color}">${r.rateInfo.rate}</div>
+        <div class="occ-label">${r.occ.toFixed(0)}%</div>
+        <div class="booked-label">${r.booked} bkd</div>
+      </div>
+      <div class="bar-stack">
+        <div class="bar-segment bar-available" style="height:${availH}px">${r.avail > 0 ? r.avail : ''}</div>
+        <div class="bar-segment bar-booked" style="height:${bookedH}px;background:${bColor}">${r.booked}</div>
+      </div>
+      <div class="chart-date${wClass}">${r.dt ? fmtDateShort(r.dt) : r.date}</div>
+      <div class="chart-day${wClass}">${r.dayName}</div>
+    </div>`;
+  });
+  document.getElementById('chart').innerHTML = html;
+}
+
+/* ── Trigger rate card ── */
+function renderTriggerCard(rows) {
+  const active = rows.filter(r => r.atTrigger);
+  const notActive = rows.filter(r => !r.atTrigger).sort((a,b) => a.roomsToTrigger - b.roomsToTrigger);
+  const close = notActive.slice(0, Math.min(5, notActive.length));
+  document.getElementById('triggerActive').innerHTML = active.length
+    ? active.map(r => `<span class="trigger-chip active">${r.date} (${r.dayName}) — ${r.occ.toFixed(0)}%</span>`).join('')
+    : '<span style="font-size:.82rem;color:var(--muted)">None currently at trigger</span>';
+  document.getElementById('triggerClose').innerHTML = close.length
+    ? close.map(r => `<span class="trigger-chip close">${r.date} (${r.dayName}) — need ${r.roomsToTrigger} more</span>`).join('')
+    : '<span style="font-size:.82rem;color:var(--muted)">—</span>';
+}
+
+/* ── Brainstorm ── */
+function renderBrainstorm(rows) {
+  const points = [];
+  const aboveTrigger = rows.filter(r => r.occ >= TRIGGER_PCT);
+  if (aboveTrigger.length) {
+    points.push(`<b>${aboveTrigger.length} date(s) already above ${TRIGGER_PCT}% trigger:</b> ${aboveTrigger.map(r=>r.date).join(', ')}. Apply walk-in rate card immediately and consider upselling.`);
+  }
+  const below40 = rows.filter(r => r.occ < 40);
+  if (below40.length) {
+    points.push(`<b>Weakest dates (below 40% occ):</b> ${below40.map(r=>r.date+' '+r.occ.toFixed(0)+'%').join(', ')}. Consider flash sales, OTA promotions, or corporate outreach.`);
+  }
+  const weekends = rows.filter(r => r.isWeekend);
+  const weekdays = rows.filter(r => !r.isWeekend);
+  if (weekends.length && weekdays.length) {
+    const avgWE = weekends.reduce((s,r)=>s+r.occ,0)/weekends.length;
+    const avgWD = weekdays.reduce((s,r)=>s+r.occ,0)/weekdays.length;
+    const diff = avgWE - avgWD;
+    points.push(`<b>Weekend vs weekday:</b> Weekend avg ${avgWE.toFixed(1)}% vs Weekday avg ${avgWD.toFixed(1)}% (${diff>0?'+':''}${diff.toFixed(1)} pts). ${diff > 5 ? 'Weekends are stronger — consider weekday promos.' : diff < -5 ? 'Weekdays outperform weekends — boost weekend marketing.' : 'Fairly balanced occupancy pattern.'}`);
+  }
+  const unsold = rows.reduce((s,r) => s + Math.max(0, r.avail), 0);
+  const avgRate = 135;
+  points.push(`<b>Unsold room-night opportunity:</b> ${unsold} rooms × ~AED ${avgRate} avg = <b>AED ${(unsold*avgRate).toLocaleString()}</b> potential revenue at risk.`);
+  const highDemand = rows.filter(r => r.avail < 20 && r.occ < TRIGGER_PCT);
+  if (highDemand.length) {
+    points.push(`<b>Nearly sold out but below trigger:</b> ${highDemand.map(r=>r.date+' ('+r.avail+' left)').join(', ')}. These may reach trigger soon — prepare rate shift.`);
+  }
+  document.getElementById('brainstormList').innerHTML = points.map(p => `<li>${p}</li>`).join('');
+}
+
+/* ── Table ── */
+function renderTable(rows) {
+  let html = '';
+  rows.forEach((r, i) => {
+    const wClass = r.isWeekend ? ' class="weekend-row"' : '';
+    html += `<tr${wClass}>
+      <td>${r.date}</td>
+      <td>${r.dayName}</td>
+      <td><input type="number" value="${r.avail}" data-idx="${i}" class="avail-edit"></td>
+      <td>${r.booked}</td>
+      <td style="color:${occColorHex(r.occ)};font-weight:600">${r.occ.toFixed(1)}%</td>
+      <td style="color:${r.rateInfo.color};font-weight:600">${r.rateInfo.rate}</td>
+      <td><span class="status-badge ${r.statusClass}">${r.status}</span></td>
+      <td>${r.atTrigger ? '<span style="color:var(--green);font-weight:600">✓ Reached</span>' : r.roomsToTrigger}</td>
+      <td>${r.atTrigger ? '<span class="rate-on">ON</span>' : '<span class="rate-base">Base</span>'}</td>
+    </tr>`;
+  });
+  document.getElementById('tableBody').innerHTML = html;
+  document.querySelectorAll('.avail-edit').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const idx = parseInt(e.target.dataset.idx);
+      DATA[idx].available = parseInt(e.target.value) || 0;
+      recalcAll();
+    });
+  });
+}
+
+/* ── Status message helper ── */
+function showStatus(msg, type) {
+  const el = document.getElementById('statusMsg');
+  el.className = 'status-msg ' + type;
+  el.innerHTML = msg;
+}
+function clearStatus() {
+  const el = document.getElementById('statusMsg');
+  el.className = 'status-msg';
+  el.innerHTML = '';
+}
+
+/* ── Load data ── */
+function loadData(rows, fromScreenshot) {
+  DATA = rows;
+  recalcAll();
+  if (fromScreenshot) {
+    document.getElementById('verifyBar').style.display = 'flex';
+  }
+}
+
+/* ── Prefilled data ── */
+(function prefill() {
+  const nums = [36,76,93,99,98,114,119,121,122,121,119,96,122,118];
+  const startParts = [6,10,2026];
+  const start = new Date(startParts[2], startParts[1]-1, startParts[0]);
+  DATA = nums.map((n, i) => {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    return { date: fmtDate(d), available: n };
+  });
+  recalcAll();
+})();
+
+document.getElementById('btnConfirmData').addEventListener('click', () => {
+  document.getElementById('verifyBar').style.display = 'none';
+});
+
+/* ── Manual load ── */
+document.getElementById('btnManualLoad').addEventListener('click', () => {
+  const startStr = document.getElementById('manualStartDate').value.trim();
+  const numsStr = document.getElementById('manualNumbers').value.trim();
+  if (!startStr || !numsStr) { showStatus('Please enter start date and numbers.', 'error'); return; }
+  const sd = parseDate(startStr);
+  if (!sd) { showStatus('Invalid start date. Use dd/mm/yy format.', 'error'); return; }
+  const nums = numsStr.split(/[\s,]+/).map(Number).filter(n => !isNaN(n));
+  if (!nums.length) { showStatus('No valid numbers found.', 'error'); return; }
+  DATA = nums.map((n, i) => {
+    const d = new Date(sd);
+    d.setDate(d.getDate() + i);
+    return { date: fmtDate(d), available: n };
+  });
+  showStatus(`✅ Loaded ${nums.length} dates manually.`, 'success');
+  recalcAll();
+});
+
+/* ══════════════════════════════════════════
+   IMAGE UPLOAD & READING
+   ══════════════════════════════════════════ */
+
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+let currentImageData = null; // base64 data URL
+
+/* -- File picker -- */
+document.getElementById('btnPickFile').addEventListener('click', e => {
+  e.stopPropagation();
+  fileInput.click();
+});
+uploadZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => {
+  if (e.target.files && e.target.files[0]) handleImageFile(e.target.files[0]);
+});
+
+/* -- Drag & drop -- */
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) handleImageFile(file);
+  else showStatus('Please drop an image file.', 'error');
+});
+
+/* -- Ctrl+V anywhere -- */
+document.addEventListener('paste', e => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.startsWith('image/')) {
+      e.preventDefault();
+      handleImageFile(items[i].getAsFile());
+      return;
+    }
+  }
+});
+
+/* -- Paste button (Clipboard API) -- */
+document.getElementById('btnPasteClip').addEventListener('click', async e => {
+  e.stopPropagation();
+  try {
+    if (!navigator.clipboard || !navigator.clipboard.read) throw new Error('no_api');
+    const clipItems = await navigator.clipboard.read();
+    for (const item of clipItems) {
+      const imgType = item.types.find(t => t.startsWith('image/'));
+      if (imgType) {
+        const blob = await item.getType(imgType);
+        handleImageFile(new File([blob], 'clipboard.png', { type: imgType }));
+        return;
+      }
+    }
+    showStatus('No image found in clipboard. Copy a screenshot first (Win+Shift+S).', 'warn');
+  } catch (err) {
+    showStatus('📋 Clipboard access blocked — click anywhere on this page and press <b>Ctrl+V</b> to paste.', 'warn');
+  }
+});
+
+/* -- Handle image file → show preview, then extract -- */
+function handleImageFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    currentImageData = e.target.result;
+    document.getElementById('uploadPreview').innerHTML =
+      `<img src="${currentImageData}" alt="PMS Screenshot">`;
+    showStatus('⏳ Image loaded. Attempting to extract data…', 'info');
+    extractFromImage(currentImageData);
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ── Image extraction via artifact sample capability ── */
+async function extractFromImage(dataUrl) {
+  /* The artifact "sample" capability lets Claude read images.
+     We post the image and ask for JSON extraction of Date + Total (Available) columns.
+     Since this is a self-contained HTML page, we simulate the extraction
+     by using OCR-like heuristics on a canvas, or provide a manual confirmation flow. */
+
+  try {
+    // Attempt to use the sample API if available in the artifact context
+    if (window.artifact && typeof window.artifact.sample === 'function') {
+      showStatus('⏳ Reading image with AI… (first use may ask for permission)', 'info');
+      try {
+        const result = await window.artifact.sample({
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'image',
+                  source: { type: 'base64', media_type: dataUrl.split(';')[0].split(':')[1], data: dataUrl.split(',')[1] }
+                },
+                {
+                  type: 'text',
+                  text: `This is a PMS "Detailed Availability" grid screenshot. Extract ONLY the Date column and the FIRST numeric column after it (labeled "Total" or the first numbers column — these are rooms still AVAILABLE).
+
+Return ONLY valid JSON array, no other text:
+[{"date":"dd/mm/yy","available":<number>}]
+
+Rules:
+- Date format must be dd/mm/yy
+- Keep negative numbers negative
+- Only read Date and the first numeric "Total" column
+- Ignore all other columns (DTS, DTN, DDS, etc.)`
+                }
+              ]
+            }
+          ],
+          system: 'You are a data extraction assistant. Return only the JSON array, no markdown, no explanation.'
+        });
+
+        // Parse the response
+        const text = typeof result === 'string' ? result :
+                     (result.content && result.content[0] && result.content[0].text) || JSON.stringify(result);
+
+        // Try to find JSON array in the response
+        const jsonMatch = text.match(/\[[\s\S]*?\]/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].date !== undefined) {
+            DATA = parsed.map(r => ({
+              date: r.date,
+              available: typeof r.available === 'number' ? r.available : parseInt(r.available) || 0
+            }));
+            showStatus(`✅ Extracted ${DATA.length} dates from screenshot.`, 'success');
+            loadData(DATA, true);
+            return;
+          }
+        }
+        showStatus('⚠️ Could not parse extracted data. Please use manual entry or verify below.', 'warn');
+      } catch (sampleErr) {
+        const errMsg = sampleErr.message || String(sampleErr);
+        if (errMsg.includes('not_granted')) {
+          showStatus('🔒 Permission not granted for image reading. Please approve the permission request, or use manual entry below.', 'warn');
+        } else if (errMsg.includes('rate_limited')) {
+          showStatus('⏱️ Rate limited — please wait a moment and try again, or use manual entry below.', 'warn');
+        } else {
+          showStatus(`⚠️ AI reading unavailable (${errMsg}). Use manual entry below.`, 'warn');
+        }
+      }
+    } else {
+      showStatus('ℹ️ AI image reading not available in this context. Use <b>manual entry</b> below — enter your start date and the Available numbers.', 'info');
+    }
+  } catch (err) {
+    showStatus('⚠️ Error during extraction. Please use manual entry below.', 'error');
+  }
+}
+
+</script>
+</body>
+</html>
