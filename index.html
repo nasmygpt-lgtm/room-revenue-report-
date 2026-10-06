@@ -86,7 +86,7 @@ h3{font-size:1rem;font-weight:600;margin-bottom:6px}
 .chart-col{display:flex;flex-direction:column;align-items:center;min-width:52px;flex:1}
 .chart-labels{text-align:center;margin-bottom:4px;font-size:.7rem;line-height:1.35}
 .chart-labels .rate-label{font-weight:700;color:var(--accent);font-size:.72rem}
-.chart-labels .occ-label{color:var(--muted)}
+.chart-labels .occ-label{color:var(--text);font-weight:700}
 .chart-labels .booked-label{color:var(--text);font-weight:500}
 .bar-stack{width:100%;max-width:44px;border-radius:6px 6px 0 0;overflow:hidden;position:relative;min-height:10px}
 .bar-segment{width:100%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:600;color:#fff;min-height:4px;transition:height .4s}
@@ -105,7 +105,7 @@ h3{font-size:1rem;font-weight:600;margin-bottom:6px}
 
 /* Trigger dates */
 .trigger-dates{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.trigger-chip{padding:4px 10px;border-radius:16px;font-size:.78rem;font-weight:500}
+.trigger-chip{padding:4px 10px;border-radius:16px;font-size:.78rem;font-weight:700}
 .trigger-chip.active{background:rgba(239,68,68,.15);color:var(--red)}
 .trigger-chip.close{background:rgba(245,158,11,.15);color:var(--amber)}
 
@@ -512,7 +512,7 @@ function renderTable(rows) {
       <td>${r.dayName}</td>
       <td><input type="number" value="${r.avail}" data-idx="${i}" class="avail-edit"></td>
       <td>${r.booked}</td>
-      <td style="color:${occColorHex(r.occ)};font-weight:${r.atTrigger ? '800' : '600'}">${r.atTrigger ? '🔴 ' : ''}${r.occ.toFixed(1)}%</td>
+      <td style="color:${occColorHex(r.occ)};font-weight:${r.atTrigger ? '800' : '700'}">${r.atTrigger ? '🔴 ' : ''}${r.occ.toFixed(1)}%</td>
       <td style="color:${r.rateInfo.color};font-weight:600">${r.rateInfo.rate}</td>
       <td><span class="status-badge ${r.statusClass}">${r.status}</span></td>
       <td>${r.atTrigger ? '<span style="color:var(--green);font-weight:600">✓ Reached</span>' : r.roomsToTrigger}</td>
