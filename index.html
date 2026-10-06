@@ -85,7 +85,8 @@ h3{font-size:1rem;font-weight:600;margin-bottom:6px}
 .bar-stack{width:100%;max-width:44px;border-radius:6px 6px 0 0;overflow:hidden;position:relative;min-height:10px}
 .bar-segment{width:100%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:600;color:#fff;min-height:4px;transition:height .4s}
 .bar-booked{/* color set dynamically */}
-.bar-available{background:var(--grey);opacity:.45}
+.bar-available{background:var(--grey);opacity:1;color:#1a1a2e}
+[data-theme=dark] .bar-available{color:#0f172a}
 .chart-date{font-size:.72rem;font-weight:600;margin-top:4px;text-align:center;white-space:nowrap}
 .chart-day{font-size:.68rem;color:var(--muted)}
 .weekend{background:rgba(245,158,11,.12);border-radius:6px;padding:2px 4px}
@@ -194,7 +195,7 @@ h3{font-size:1rem;font-weight:600;margin-bottom:6px}
         </label>
       </div>
       <label style="font-size:.82rem">Available rooms per day (space or comma separated)</label>
-      <textarea id="manualNumbers" placeholder="e.g. 36 76 93 99 98 114 119 121 122 121 119 96 122 118">36 76 93 99 98 114 119 121 122 121 119 96 122 118</textarea>
+      <textarea id="manualNumbers" placeholder="e.g. 36 76 93 99 98 114 119 121 122 121 119 96 122 118"></textarea>
       <button class="btn btn-green" style="margin-top:8px" id="btnManualLoad">Load data</button>
     </div>
   </div>
@@ -222,7 +223,7 @@ h3{font-size:1rem;font-weight:600;margin-bottom:6px}
     </div>
     <div class="legend" style="margin-bottom:8px">
       <span class="legend-item"><span class="legend-swatch" style="background:var(--blue)"></span> Booked</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:var(--grey);opacity:.45"></span> Available</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:var(--grey)"></span> Available</span>
       <span class="legend-item"><span class="legend-swatch" style="background:var(--green)"></span> &lt;30% occ</span>
       <span class="legend-item"><span class="legend-swatch" style="background:var(--amber)"></span> 30–70%</span>
       <span class="legend-item"><span class="legend-swatch" style="background:var(--red)"></span> ≥70%</span>
@@ -369,19 +370,30 @@ function computeRows() {
 /* ── Render everything ── */
 function recalcAll() {
   const rows = computeRows();
+  const hasData = rows.length > 0;
   renderKPIs(rows);
+  // Show data sections only when there is data; otherwise everything stays zero/empty
+  ['chartSection','triggerSection','brainstormSection','tableSection'].forEach(id => {
+    document.getElementById(id).style.display = hasData ? '' : 'none';
+  });
+  if (!hasData) return;
   renderChart(rows);
   renderTriggerCard(rows);
   renderBrainstorm(rows);
   renderTable(rows);
-  ['chartSection','triggerSection','brainstormSection','tableSection'].forEach(id => {
-    document.getElementById(id).style.display = '';
-  });
 }
 
 /* ── KPI Cards ── */
 function renderKPIs(rows) {
-  if (!rows.length) { document.getElementById('kpiCards').innerHTML = ''; return; }
+  if (!rows.length) {
+    document.getElementById('kpiCards').innerHTML = `
+      <div class="kpi"><div class="kpi-label">Avg Occupancy</div><div class="kpi-value">0%</div><div class="kpi-sub">No data yet</div></div>
+      <div class="kpi"><div class="kpi-label">Fullest Date</div><div class="kpi-value">—</div><div class="kpi-sub">Paste a screenshot</div></div>
+      <div class="kpi"><div class="kpi-label">Emptiest Date</div><div class="kpi-value">—</div><div class="kpi-sub">Paste a screenshot</div></div>
+      <div class="kpi"><div class="kpi-label">Unsold Room-Nights</div><div class="kpi-value">0</div><div class="kpi-sub">Awaiting upload</div></div>
+    `;
+    return;
+  }
   const avgOcc = rows.reduce((s,r) => s + r.occ, 0) / rows.length;
   const fullest = rows.reduce((a,b) => a.occ > b.occ ? a : b);
   const emptiest = rows.reduce((a,b) => a.occ < b.occ ? a : b);
@@ -408,7 +420,7 @@ function renderChart(rows) {
       <div class="chart-labels">
         <div class="rate-label" style="color:${r.rateInfo.color}">${r.rateInfo.rate}</div>
         <div class="occ-label">${r.occ.toFixed(0)}%</div>
-        <div class="booked-label">${r.booked} bkd</div>
+        <div class="booked-label">${r.booked} booked</div>
       </div>
       <div class="bar-stack">
         <div class="bar-segment bar-available" style="height:${availH}px">${r.avail > 0 ? r.avail : ''}</div>
@@ -511,17 +523,14 @@ function loadData(rows, fromScreenshot) {
   }
 }
 
-/* ── Prefilled data ── */
-(function prefill() {
-  const nums = [36,76,93,99,98,114,119,121,122,121,119,96,122,118];
-  const startParts = [6,10,2026];
-  const start = new Date(startParts[2], startParts[1]-1, startParts[0]);
-  DATA = nums.map((n, i) => {
-    const d = new Date(start);
-    d.setDate(d.getDate() + i);
-    return { date: fmtDate(d), available: n };
+/* ── Empty state until a screenshot/manual data is loaded ── */
+(function initEmpty() {
+  DATA = [];
+  renderKPIs([]);
+  // Keep all data sections hidden until data arrives
+  ['chartSection','triggerSection','brainstormSection','tableSection'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
   });
-  recalcAll();
 })();
 
 document.getElementById('btnConfirmData').addEventListener('click', () => {
