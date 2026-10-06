@@ -188,19 +188,36 @@ h3{font-size:1rem;font-weight:600;margin-bottom:6px}
     <div class="upload-preview" id="uploadPreview"></div>
     <div class="status-msg" id="statusMsg"></div>
 
-    <!-- Manual fallback -->
-    <div class="manual-fallback" id="manualFallback">
-      <h3>✏️ Manual entry (optional backup)</h3>
-      <p style="font-size:.8rem;color:var(--muted);margin-bottom:8px">Only needed if a screenshot is blurry or unavailable. Normally just paste the screenshot above.</p>
+    <!-- Paste BOOKED numbers (primary quick-entry) -->
+    <div class="manual-fallback" id="bookedEntry" style="border-color:var(--green)">
+      <h3>📋 Paste booked rooms (quick)</h3>
+      <p style="font-size:.8rem;color:var(--muted);margin-bottom:8px">
+        Paste a column of <b>booked</b> room counts (one per day). The <b>first number is today</b> (<span id="todayLabel"></span>), each next number is the following day. Available is calculated as <b>Total − booked</b>.
+      </p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;align-items:flex-end">
+        <label style="font-size:.82rem">Start date
+          <input type="text" id="bookedStartDate" placeholder="dd/mm/yy">
+        </label>
+        <span style="font-size:.75rem;color:var(--muted);padding-bottom:6px">(defaults to today — change if needed)</span>
+      </div>
+      <label style="font-size:.82rem">Booked rooms per day (one per line, or space/comma separated)</label>
+      <textarea id="bookedNumbers" placeholder="104&#10;65&#10;48&#10;42&#10;..."></textarea>
+      <button class="btn btn-green" style="margin-top:8px" id="btnBookedLoad">Load booked → calculate availability</button>
+    </div>
+
+    <!-- Manual AVAILABLE entry (secondary backup) -->
+    <details class="manual-fallback" id="manualFallback" style="margin-top:10px">
+      <summary style="cursor:pointer;font-weight:600;font-size:1rem">✏️ Or enter <u>available</u> rooms instead</summary>
+      <p style="font-size:.8rem;color:var(--muted);margin:8px 0">Use this only if your numbers are already available rooms (not booked).</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">
         <label style="font-size:.82rem">Start date (dd/mm/yy)
-          <input type="text" id="manualStartDate" value="06/10/26" placeholder="dd/mm/yy">
+          <input type="text" id="manualStartDate" placeholder="dd/mm/yy">
         </label>
       </div>
       <label style="font-size:.82rem">Available rooms per day (space or comma separated)</label>
       <textarea id="manualNumbers" placeholder="e.g. 36 76 93 99 98 114 119 121 122 121 119 96 122 118"></textarea>
-      <button class="btn btn-green" style="margin-top:8px" id="btnManualLoad">Load data</button>
-    </div>
+      <button class="btn btn-secondary" style="margin-top:8px" id="btnManualLoad">Load available data</button>
+    </details>
   </div>
 
   <!-- VERIFY BAR -->
@@ -530,6 +547,13 @@ function loadData(rows, fromScreenshot) {
 (function initEmpty() {
   DATA = [];
   renderKPIs([]);
+  // Default the start-date fields to TODAY (first pasted number = today)
+  const today = new Date();
+  const todayStr = fmtDate(today);
+  document.getElementById('bookedStartDate').value = todayStr;
+  document.getElementById('manualStartDate').value = todayStr;
+  const tl = document.getElementById('todayLabel');
+  if (tl) tl.textContent = todayStr;
   // Keep all data sections hidden until data arrives
   ['chartSection','triggerSection','brainstormSection','tableSection'].forEach(id => {
     document.getElementById(id).style.display = 'none';
@@ -554,8 +578,26 @@ document.getElementById('btnManualLoad').addEventListener('click', () => {
     d.setDate(d.getDate() + i);
     return { date: fmtDate(d), available: n };
   });
-  showStatus(`✅ Loaded ${nums.length} dates manually.`, 'success');
+  showStatus(`✅ Loaded ${nums.length} dates (available).`, 'success');
   recalcAll();
+});
+
+/* ── Paste BOOKED numbers → convert to available (Total − booked) ── */
+document.getElementById('btnBookedLoad').addEventListener('click', () => {
+  const startStr = document.getElementById('bookedStartDate').value.trim();
+  const numsStr = document.getElementById('bookedNumbers').value.trim();
+  if (!numsStr) { showStatus('Please paste the booked room numbers.', 'error'); return; }
+  const sd = startStr ? parseDate(startStr) : new Date();
+  if (!sd) { showStatus('Invalid start date. Use dd/mm/yy format.', 'error'); return; }
+  const booked = numsStr.split(/[\s,]+/).map(Number).filter(n => !isNaN(n));
+  if (!booked.length) { showStatus('No valid numbers found.', 'error'); return; }
+  DATA = booked.map((b, i) => {
+    const d = new Date(sd);
+    d.setDate(d.getDate() + i);
+    return { date: fmtDate(d), available: TOTAL_ROOMS - b }; // booked → available
+  });
+  showStatus(`✅ Loaded ${booked.length} day(s) of booked rooms. Available = ${TOTAL_ROOMS} − booked. Please verify below.`, 'success');
+  loadData(DATA, true);
 });
 
 /* ══════════════════════════════════════════
