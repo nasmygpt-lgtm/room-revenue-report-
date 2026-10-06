@@ -42,6 +42,9 @@ h3{font-size:1rem;font-weight:600;margin-bottom:6px}
 .kpi-label{font-size:.75rem;opacity:.85;text-transform:uppercase;letter-spacing:.5px}
 .kpi-value{font-size:1.5rem;font-weight:700;margin-top:2px}
 .kpi-sub{font-size:.78rem;opacity:.8;margin-top:2px}
+.kpi-alert{background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 0 0 2px rgba(239,68,68,.4),var(--shadow);animation:pulseAlert 2s ease-in-out infinite}
+@keyframes pulseAlert{0%,100%{box-shadow:0 0 0 2px rgba(239,68,68,.4),var(--shadow)}50%{box-shadow:0 0 0 5px rgba(239,68,68,.15),var(--shadow)}}
+@media(prefers-reduced-motion:reduce){.kpi-alert{animation:none}}
 
 /* Sections */
 .section{background:var(--card);border-radius:12px;padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow);overflow-x:auto}
@@ -90,6 +93,7 @@ h3{font-size:1rem;font-weight:600;margin-bottom:6px}
 .bar-booked{/* color set dynamically */}
 .bar-available{background:var(--grey);opacity:1;color:#1a1a2e}
 [data-theme=dark] .bar-available{color:#0f172a}
+.chart-labels .occ-alert{color:var(--red);font-weight:800;font-size:.9rem}
 .chart-date{font-size:.72rem;font-weight:600;margin-top:4px;text-align:center;white-space:nowrap}
 .chart-day{font-size:.68rem;color:var(--muted)}
 .weekend{background:rgba(245,158,11,.12);border-radius:6px;padding:2px 4px}
@@ -115,6 +119,8 @@ h3{font-size:1rem;font-weight:600;margin-bottom:6px}
 .data-table td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
 .data-table tr:hover td{background:rgba(99,102,241,.04)}
 .data-table .weekend-row{background:rgba(245,158,11,.06)}
+.data-table .alert-row{background:rgba(239,68,68,.1);box-shadow:inset 3px 0 0 var(--red)}
+.data-table .alert-row:hover td{background:rgba(239,68,68,.14)}
 .data-table input[type=number]{width:60px;padding:3px 5px;border:1px solid var(--border);border-radius:5px;text-align:center;font-size:.82rem;background:var(--card);color:var(--text)}
 .status-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:600}
 .status-high{background:rgba(239,68,68,.12);color:var(--red)}
@@ -420,7 +426,7 @@ function renderKPIs(rows) {
   const unsold = rows.reduce((s,r) => s + Math.max(0, r.avail), 0);
   document.getElementById('kpiCards').innerHTML = `
     <div class="kpi"><div class="kpi-label">Avg Occupancy</div><div class="kpi-value">${avgOcc.toFixed(1)}%</div><div class="kpi-sub">${rows.length} dates</div></div>
-    <div class="kpi"><div class="kpi-label">Fullest Date</div><div class="kpi-value">${fullest.occ.toFixed(1)}%</div><div class="kpi-sub">${fullest.date} (${fullest.dayName})</div></div>
+    <div class="kpi${fullest.atTrigger ? ' kpi-alert' : ''}"><div class="kpi-label">Fullest Date${fullest.atTrigger ? ' · 🔴 HOTEL FILLING' : ''}</div><div class="kpi-value">${fullest.atTrigger ? '🔴 ' : ''}${fullest.occ.toFixed(1)}%</div><div class="kpi-sub">${fullest.date} (${fullest.dayName})</div></div>
     <div class="kpi"><div class="kpi-label">Emptiest Date</div><div class="kpi-value">${emptiest.occ.toFixed(1)}%</div><div class="kpi-sub">${emptiest.date} (${emptiest.dayName})</div></div>
     <div class="kpi"><div class="kpi-label">Unsold Room-Nights</div><div class="kpi-value">${unsold.toLocaleString()}</div><div class="kpi-sub">Total avail across dates</div></div>
   `;
@@ -439,7 +445,7 @@ function renderChart(rows) {
     html += `<div class="chart-col">
       <div class="chart-labels">
         <div class="rate-label" style="color:${r.rateInfo.color}">${r.rateInfo.rate}</div>
-        <div class="occ-label">${r.occ.toFixed(0)}%</div>
+        <div class="occ-label${r.atTrigger ? ' occ-alert' : ''}">${r.atTrigger ? '🔴 ' : ''}${r.occ.toFixed(0)}%</div>
         <div class="booked-label">${r.booked} booked</div>
       </div>
       <div class="bar-stack">
@@ -499,13 +505,14 @@ function renderBrainstorm(rows) {
 function renderTable(rows) {
   let html = '';
   rows.forEach((r, i) => {
-    const wClass = r.isWeekend ? ' class="weekend-row"' : '';
+    const cls = [r.isWeekend ? 'weekend-row' : '', r.atTrigger ? 'alert-row' : ''].filter(Boolean).join(' ');
+    const wClass = cls ? ` class="${cls}"` : '';
     html += `<tr${wClass}>
       <td>${r.date}</td>
       <td>${r.dayName}</td>
       <td><input type="number" value="${r.avail}" data-idx="${i}" class="avail-edit"></td>
       <td>${r.booked}</td>
-      <td style="color:${occColorHex(r.occ)};font-weight:600">${r.occ.toFixed(1)}%</td>
+      <td style="color:${occColorHex(r.occ)};font-weight:${r.atTrigger ? '800' : '600'}">${r.atTrigger ? '🔴 ' : ''}${r.occ.toFixed(1)}%</td>
       <td style="color:${r.rateInfo.color};font-weight:600">${r.rateInfo.rate}</td>
       <td><span class="status-badge ${r.statusClass}">${r.status}</span></td>
       <td>${r.atTrigger ? '<span style="color:var(--green);font-weight:600">✓ Reached</span>' : r.roomsToTrigger}</td>
