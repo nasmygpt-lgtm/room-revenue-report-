@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Room Availability Dashboard</title>
+<!-- Tesseract.js: real in-browser OCR so a pasted/uploaded screenshot is read automatically.
+     This is the ONE external dependency; everything else is self-contained. -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 :root{
   --bg:#f4f6f9;--card:#fff;--text:#1a1a2e;--muted:#6b7280;--border:#e2e5ea;
@@ -170,12 +173,12 @@ h3{font-size:1rem;font-weight:600;margin-bottom:6px}
   <div class="section" id="uploadSection">
     <h2>📸 Upload PMS Screenshot</h2>
     <p style="font-size:.82rem;color:var(--muted);margin-bottom:10px">
-      Copy the screen (<b>Win+Shift+S</b> / Snipping Tool), then <b>Ctrl+V</b> anywhere on this page — or use the options below.
+      Copy the screen (<b>Win+Shift+S</b> / Snipping Tool), then <b>Ctrl+V</b> anywhere on this page — the screenshot is read automatically.
     </p>
     <div class="upload-zone" id="uploadZone">
       <div class="upload-zone-icon">📋</div>
       <p><b>Drop, paste, or click</b> to upload a PMS Detailed Availability screenshot</p>
-      <p class="upload-hint">Only the Date column and first numeric "Total" (Available) column will be read</p>
+      <p class="upload-hint">The Date column + first numeric "Total" (Available) column are read automatically. Tip: a tight, zoomed-in crop of just those two columns reads most accurately.</p>
       <div class="upload-actions">
         <button class="btn btn-primary" id="btnPickFile">📁 Choose file</button>
         <button class="btn btn-secondary" id="btnPasteClip">📋 Paste from clipboard</button>
@@ -187,8 +190,8 @@ h3{font-size:1rem;font-weight:600;margin-bottom:6px}
 
     <!-- Manual fallback -->
     <div class="manual-fallback" id="manualFallback">
-      <h3>✏️ Manual entry (fallback)</h3>
-      <p style="font-size:.8rem;color:var(--muted);margin-bottom:8px">If image reading is unavailable, enter data manually.</p>
+      <h3>✏️ Manual entry (optional backup)</h3>
+      <p style="font-size:.8rem;color:var(--muted);margin-bottom:8px">Only needed if a screenshot is blurry or unavailable. Normally just paste the screenshot above.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">
         <label style="font-size:.82rem">Start date (dd/mm/yy)
           <input type="text" id="manualStartDate" value="06/10/26" placeholder="dd/mm/yy">
@@ -632,79 +635,58 @@ function handleImageFile(file) {
 
 /* ── Image extraction via artifact sample capability ── */
 async function extractFromImage(dataUrl) {
-  /* The artifact "sample" capability lets Claude read images.
-     We post the image and ask for JSON extraction of Date + Total (Available) columns.
-     Since this is a self-contained HTML page, we simulate the extraction
-     by using OCR-like heuristics on a canvas, or provide a manual confirmation flow. */
-
+  // Real in-browser OCR via Tesseract.js. Reads the Date column + the FIRST
+  // numeric column ("Total" = rooms available) directly from the screenshot.
+  if (typeof Tesseract === 'undefined') {
+    showStatus('⚠️ OCR engine failed to load (check your internet connection), then try again.', 'error');
+    return;
+  }
   try {
-    // Attempt to use the sample API if available in the artifact context
-    if (window.artifact && typeof window.artifact.sample === 'function') {
-      showStatus('⏳ Reading image with AI… (first use may ask for permission)', 'info');
-      try {
-        const result = await window.artifact.sample({
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'image',
-                  source: { type: 'base64', media_type: dataUrl.split(';')[0].split(':')[1], data: dataUrl.split(',')[1] }
-                },
-                {
-                  type: 'text',
-                  text: `This is a PMS "Detailed Availability" grid screenshot. Extract ONLY the Date column and the FIRST numeric column after it (labeled "Total" or the first numbers column — these are rooms still AVAILABLE).
-
-Return ONLY valid JSON array, no other text:
-[{"date":"dd/mm/yy","available":<number>}]
-
-Rules:
-- Date format must be dd/mm/yy
-- Keep negative numbers negative
-- Only read Date and the first numeric "Total" column
-- Ignore all other columns (DTS, DTN, DDS, etc.)`
-                }
-              ]
-            }
-          ],
-          system: 'You are a data extraction assistant. Return only the JSON array, no markdown, no explanation.'
-        });
-
-        // Parse the response
-        const text = typeof result === 'string' ? result :
-                     (result.content && result.content[0] && result.content[0].text) || JSON.stringify(result);
-
-        // Try to find JSON array in the response
-        const jsonMatch = text.match(/\[[\s\S]*?\]/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].date !== undefined) {
-            DATA = parsed.map(r => ({
-              date: r.date,
-              available: typeof r.available === 'number' ? r.available : parseInt(r.available) || 0
-            }));
-            showStatus(`✅ Extracted ${DATA.length} dates from screenshot.`, 'success');
-            loadData(DATA, true);
-            return;
-          }
-        }
-        showStatus('⚠️ Could not parse extracted data. Please use manual entry or verify below.', 'warn');
-      } catch (sampleErr) {
-        const errMsg = sampleErr.message || String(sampleErr);
-        if (errMsg.includes('not_granted')) {
-          showStatus('🔒 Permission not granted for image reading. Please approve the permission request, or use manual entry below.', 'warn');
-        } else if (errMsg.includes('rate_limited')) {
-          showStatus('⏱️ Rate limited — please wait a moment and try again, or use manual entry below.', 'warn');
-        } else {
-          showStatus(`⚠️ AI reading unavailable (${errMsg}). Use manual entry below.`, 'warn');
+    showStatus('⏳ Reading screenshot… this can take 10–30s on first run.', 'info');
+    const { data } = await Tesseract.recognize(dataUrl, 'eng', {
+      logger: m => {
+        if (m.status === 'recognizing text') {
+          showStatus(`⏳ Reading screenshot… ${Math.round(m.progress * 100)}%`, 'info');
         }
       }
+    });
+
+    const rows = parseOcrText(data.text);
+    if (rows.length) {
+      DATA = rows;
+      showStatus(`✅ Read ${rows.length} date(s) from the screenshot. Please verify the values below.`, 'success');
+      loadData(DATA, true);
     } else {
-      showStatus('ℹ️ AI image reading not available in this context. Use <b>manual entry</b> below — enter your start date and the Available numbers.', 'info');
+      showStatus('⚠️ Couldn\'t find Date + Total rows in the image. Try a sharper/zoomed-in screenshot of just those two columns, then paste again.', 'warn');
     }
   } catch (err) {
-    showStatus('⚠️ Error during extraction. Please use manual entry below.', 'error');
+    showStatus('⚠️ OCR error: ' + (err && err.message ? err.message : err) + '. Try a clearer screenshot.', 'error');
   }
+}
+
+/* ── Parse raw OCR text into [{date, available}] ──
+   Strategy: scan each line, find a date token, then take the FIRST
+   integer that appears AFTER the date on that line (that's the "Total"
+   available column). Negative numbers kept negative. */
+function parseOcrText(text) {
+  const out = [];
+  // Matches dd/mm/yy, dd/mm/yyyy, dd-mm-yy, dd.mm.yy
+  const dateRe = /(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/;
+  text.split(/\r?\n/).forEach(line => {
+    const m = line.match(dateRe);
+    if (!m) return;
+    // Everything on the line AFTER the matched date
+    const after = line.slice(m.index + m[0].length);
+    // First integer (optionally negative) after the date = Total/Available
+    const numMatch = after.match(/-?\d+/);
+    if (!numMatch) return;
+    const dd = String(parseInt(m[1], 10)).padStart(2, '0');
+    const mm = String(parseInt(m[2], 10)).padStart(2, '0');
+    let yy = m[3];
+    if (yy.length === 4) yy = yy.slice(-2);
+    out.push({ date: `${dd}/${mm}/${yy}`, available: parseInt(numMatch[0], 10) });
+  });
+  return out;
 }
 
 </script>

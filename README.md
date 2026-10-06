@@ -6,12 +6,18 @@ A single-page, self-contained HTML dashboard for hotel revenue and front-office 
 
 ## ✨ Features
 
-### 📸 Screenshot Upload (5 Methods)
+### 📸 Screenshot → Data (automatic OCR)
+Paste a PMS "Detailed Availability" screenshot and the dashboard **reads it automatically** using in-browser OCR (Tesseract.js) — it extracts the Date column and the first numeric "Total" (Available) column. No typing required.
+
+Four ways to give it the screenshot:
 1. **Click-to-upload** file picker
 2. **Drag & drop** onto the upload zone
 3. **Ctrl+V paste** anywhere on the page
-4. **Clipboard button** (`navigator.clipboard.read`) with friendly fallback
-5. **Manual entry** fallback (start date + available room numbers)
+4. **Clipboard button** (`navigator.clipboard.read`)
+
+A **manual entry** box is available as a backup only (for blurry or unavailable screenshots).
+
+> **Tip:** A tight, zoomed-in crop of just the Date + Total columns gives the most accurate OCR results.
 
 ### 📊 Occupancy Chart
 - CSS-only stacked bar chart (no external libraries)
@@ -82,11 +88,12 @@ Fully responsive design — works on desktop, tablet, and mobile devices.
 
 ## 🔧 Technical
 
-- **Zero dependencies** — single HTML file with inline CSS & JS
-- **No external resources** — no CDN, no images, no API calls
+- **Single HTML file** with inline CSS & JS
+- **One external dependency:** [Tesseract.js](https://github.com/naptha/tesseract.js) (loaded from jsDelivr CDN) for real in-browser OCR — this is what makes the paste-a-screenshot feature actually work
+- **No API keys, no backend** — OCR runs entirely in your browser
 - **No localStorage** — fresh state on every load
 - **Mobile-friendly** with `viewport-fit=cover`
-- **AI-powered OCR** via artifact sample capability (when available)
+- **Requires internet** on first use so the OCR engine (and its English language data) can download
 
 ## 📄 License
 
